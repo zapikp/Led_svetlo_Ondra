@@ -1,6 +1,7 @@
 //datum posledn9 zmeny 5.10.2018 prvni uprava
 //definitivni verze k 24.12.2018
 //zmena  10.3.2019  zapadlo.local -> zapadlo.test
+//pridána sila signalu, verze 102
 
 #include "pwm-new.h"
 #include <Arduino.h>
@@ -16,7 +17,7 @@
 
 //skript pro ukladani teplot a stavu
 //#define SKRIPTV "sonda/xxxxx.php"
-#define VERSION 100
+#define VERSION 102
 
 
 
@@ -40,6 +41,7 @@
 #define BUDIK_TIME 25 //4B na cas budiku
 #define BUDIK_STATE 29 // 1B na stav budiku
 #define BUDIK_JAS 30 // 4B na jas budiku
+#define TEST 40 //testovaci adresa
 
 #define konstanta 1000 //pocet ms na s
 #define DEBOUNC 200 //protizakmitova konstanta
@@ -178,7 +180,7 @@ String INDEX_HTML_1 =
 "</head>\n"
 "<body>\n"
 "<div class=\"wrapper\">"
-"<h1>Světla</h1><br>\n";
+"<h1>Světla Ondra</h1><br>\n";
 
 String INDEX_HTML_3 =
 //"<tr><td></td><td><INPUT type=\"submit\" value=\"Uložit\"></td></tr>"
@@ -217,7 +219,7 @@ void setup() {
 
   Serial.println();
   Serial.println();
-  Serial.print("Connecting to ");
+  Serial.print("Connecting to: ");
   Serial.println(ssid);
 
   WiFi.begin(ssid, password);
@@ -234,7 +236,7 @@ void setup() {
 
   Serial.println("");
   Serial.println("WiFi connected");
-  Serial.println("IP address: ");
+  Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
   tst = WiFi.localIP();
 
@@ -267,6 +269,8 @@ void setup() {
 
 //nacteni hodnot z eeprom
 timezone=EEPROM.read(TIMEZONE);
+Serial.print("Timezone: ");
+Serial.println(timezone);
 if ((timezone>2)||(timezone<1)){
   timezone=1; //zimni cas
   EEPROM.write(TIMEZONE,timezone);
@@ -274,38 +278,59 @@ if ((timezone>2)||(timezone<1)){
 }
 //nacteni jas
 w_jas=read_from_eeprom(WJAS);
+Serial.print("Wjas: ");
+Serial.println(w_jas);
 if (w_jas> 1023) {
   w_jas=0;
   write_to_eeprom(w_jas, WJAS);
 }
 w_jas_docas=w_jas;
 r_jas=read_from_eeprom(RJAS);
+Serial.print("Rjas: ");
+Serial.println(r_jas);
+
 if (r_jas> 1023) {
   r_jas=0;
   write_to_eeprom(r_jas, RJAS);
 }
 g_jas=read_from_eeprom(GJAS);
+Serial.print("Gjas: ");
+Serial.println(g_jas);
+
 if (g_jas> 1023) {
   g_jas=0;
   write_to_eeprom(g_jas, GJAS);
 }
 b_jas=read_from_eeprom(BJAS);
+Serial.print("Bjas: ");
+Serial.println(b_jas);
+
 if (b_jas> 1023) {
   b_jas=0;
   write_to_eeprom(b_jas, BJAS);
 }
 budik_time=read_from_eeprom(BUDIK_TIME);
+Serial.print("Budik time: ");
+Serial.println(budik_time);
+
 if (budik_time> 86400) {
   budik_time=0;
   write_to_eeprom(budik_time, BUDIK_TIME);
 }
+
 budik_state=EEPROM.read(BUDIK_STATE);
+Serial.print("Budik state: ");
+Serial.println(budik_state);
+
 if (budik_state>1){
-  budik_state=0; //budisk vypnut
+  budik_state=0; //budik vypnut
   EEPROM.write(BUDIK_STATE,budik_state);
   EEPROM.commit();
 }
 budik_jas=read_from_eeprom(BUDIK_JAS);
+Serial.print("Budik jas: ");
+Serial.println(budik_jas);
+
 if (budik_jas> 1023) {
   budik_jas=0;
   write_to_eeprom(budik_jas, BUDIK_JAS);
@@ -325,8 +350,8 @@ if (MDNS.begin("ondra")) {
  server.begin();
  Serial.println("HTTP server started");
  //zjisteni  casu
- Serial.println("Starting UDP");
  udp.begin(localPort);
+ Serial.println("UDP Started");
  Serial.print("Local port: ");
  Serial.println(udp.localPort());
  for (uint8_t i=0;i<3; i++){
@@ -734,6 +759,11 @@ if (pocetT > 0){
   INDEX_HTML += teploty[0];
   INDEX_HTML += "</td></tr>\n";
 }
+//tisk sily signálu
+INDEX_HTML += "<tr><td>Síla Wifi signálu</td><td>";
+INDEX_HTML += WiFi.RSSI();
+INDEX_HTML += "dBm</td></tr>\n";
+
 //tisk Verze
 INDEX_HTML += "<tr><td>Použitá verze</td><td>";
 INDEX_HTML += VERSION;
@@ -865,6 +895,9 @@ void sendpacket(IPAddress& address)
 uint8_t zjisti(){
   unsigned long epoch; //unix time
   WiFi.hostByName(host_, timeServerIP);
+  Serial.print("NTP from: ");
+  Serial.print(host_);
+  Serial.print("");
   Serial.println(timeServerIP);
   sendpacket(timeServerIP); // send an  packet to a time server
   // wait to see if a reply is available
@@ -969,7 +1002,7 @@ void write_to_eeprom(uint32_t integer, uint8_t adresa){
 
 //nacteni uint32_t z EEPROM
 uint32_t read_from_eeprom(uint8_t adresa){
-  uint8_t pole [4];
+  uint8_t pole[4];
   for (uint8_t i=0; i<4;i++){
     pole[i]=EEPROM.read(adresa+i);
   }
